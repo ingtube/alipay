@@ -11,8 +11,7 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/smartwalle/alipay/encoding"
+	"github.com/ingtube/alipay/encoding"
 )
 
 type AliPay struct {
