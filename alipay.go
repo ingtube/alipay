@@ -75,6 +75,28 @@ func (this *AliPay) URLValues(param AliPayParam) (value url.Values, err error) {
 	return p, nil
 }
 
+func (this *AliPay) AppURLValues(targetId string) (url string, err error) {
+	var p = url.Values{}
+	p.Add("app_id", this.appId)
+	p.Add("pid",  this.partnerId)
+	p.Add("sign_type", "RSA2")
+	p.Add("target_id", targetId)
+
+
+	var sign string
+	if this.SignType == K_SIGN_TYPE_RSA {
+		sign, err = signRSA(p, this.privateKey)
+	} else {
+		sign, err = signRSA2(p, this.privateKey)
+	}
+	p.Add("sign", sign)
+
+	if err != nil {
+		return "", err
+	}
+	return p.Encode(), nil
+}
+
 func (this *AliPay) doRequest(method string, param AliPayParam, results interface{}) (err error) {
 	var buf io.Reader
 	if param != nil {
