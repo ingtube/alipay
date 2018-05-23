@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 	"github.com/ingtube/alipay/encoding"
+	"github.com/sirupsen/logrus"
 )
 
 type AliPay struct {
@@ -75,13 +76,22 @@ func (this *AliPay) URLValues(param AliPayParam) (value url.Values, err error) {
 	return p, nil
 }
 
-func (this *AliPay) AppURLValues(targetId string) (url string, err error) {
+func (this *AliPay) AppURLValues(targetId string) (string, error) {
 	var p = url.Values{}
+	p.Add("apiname", "com.alipay.account.auth")
+	p.Add("method", "alipay.open.auth.sdk.code.get")
 	p.Add("app_id", this.appId)
+	p.Add("app_name", "mc")
+	p.Add("biz_type", "openservice")
 	p.Add("pid",  this.partnerId)
-	p.Add("sign_type", "RSA2")
+	p.Add("product_id","APP_FAST_LOGIN")
+	p.Add("scope", "kuaijie")
 	p.Add("target_id", targetId)
+	p.Add("auth_type", "AUTHACCOUNT")
+	p.Add("sign_type", "RSA2")
+	p.Add("app_id", this.appId)
 
+	var err error
 
 	var sign string
 	if this.SignType == K_SIGN_TYPE_RSA {
@@ -150,6 +160,8 @@ func (this *AliPay) doRequest(method string, param AliPayParam, results interfac
 		}
 	}
 
+	logrus.Info("打印原版数据")
+	logrus.Infof("%v", string(data))
 	err = json.Unmarshal(data, results)
 	if err != nil {
 		return err
