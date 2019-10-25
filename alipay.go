@@ -11,31 +11,34 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"github.com/ingtube/alipay/encoding"
-	"github.com/sirupsen/logrus"
+
+	"github.com/smartwalle/alipay/encoding"
 )
 
 type AliPay struct {
-	appId           string
-	apiDomain       string
-	partnerId       string
+	appId              string
+	apiDomain          string
+	notifyVerifyDomain string
+	//partnerId          string
 	privateKey      []byte
 	AliPayPublicKey []byte
 	Client          *http.Client
 	SignType        string
 }
 
-func New(appId, partnerId string, aliPublicKey, privateKey []byte, isProduction bool) (client *AliPay) {
+func New(appId, aliPublicKey, privateKey string, isProduction bool) (client *AliPay) {
 	client = &AliPay{}
 	client.appId = appId
-	client.partnerId = partnerId
-	client.privateKey = privateKey
-	client.AliPayPublicKey = aliPublicKey
+	//client.partnerId = partnerId
+	client.privateKey = encoding.FormatPrivateKey(privateKey)
+	client.AliPayPublicKey = encoding.FormatPublicKey(aliPublicKey)
 	client.Client = http.DefaultClient
 	if isProduction {
-		client.apiDomain = K_ALI_PAY_PRODUCTION_API_URL
+		client.apiDomain = kProductionURL
+		client.notifyVerifyDomain = kProductionMAPIURL
 	} else {
-		client.apiDomain = K_ALI_PAY_SANDBOX_API_URL
+		client.apiDomain = kSandboxURL
+		client.notifyVerifyDomain = kSandboxURL
 	}
 	client.SignType = K_SIGN_TYPE_RSA2
 	return client
@@ -45,11 +48,11 @@ func (this *AliPay) URLValues(param AliPayParam) (value url.Values, err error) {
 	var p = url.Values{}
 	p.Add("app_id", this.appId)
 	p.Add("method", param.APIName())
-	p.Add("format", K_FORMAT)
-	p.Add("charset", K_CHARSET)
+	p.Add("format", kFormat)
+	p.Add("charset", kCharset)
 	p.Add("sign_type", this.SignType)
-	p.Add("timestamp", time.Now().Format(K_TIME_FORMAT))
-	p.Add("version", K_VERSION)
+	p.Add("timestamp", time.Now().Format(kTimeFormat))
+	p.Add("version", kVersion)
 
 	if len(param.ExtJSONParamName()) > 0 {
 		p.Add(param.ExtJSONParamName(), param.ExtJSONParamValue())
@@ -62,49 +65,18 @@ func (this *AliPay) URLValues(param AliPayParam) (value url.Values, err error) {
 		}
 	}
 
-	var sign string
+	var hash crypto.Hash
 	if this.SignType == K_SIGN_TYPE_RSA {
-		sign, err = signRSA(p, this.privateKey)
+		hash = crypto.SHA1
 	} else {
-		sign, err = signRSA2(p, this.privateKey)
+		hash = crypto.SHA256
 	}
-	p.Add("sign", sign)
-
+	sign, err := signWithPKCS1v15(p, this.privateKey, hash)
 	if err != nil {
 		return nil, err
 	}
-	return p, nil
-}
-
-func (this *AliPay) AppURLValues(targetId string) (string, error) {
-	var p = url.Values{}
-	p.Add("apiname", "com.alipay.account.auth")
-	p.Add("method", "alipay.open.auth.sdk.code.get")
-	p.Add("app_id", this.appId)
-	p.Add("app_name", "mc")
-	p.Add("biz_type", "openservice")
-	p.Add("pid",  this.partnerId)
-	p.Add("product_id","APP_FAST_LOGIN")
-	p.Add("scope", "kuaijie")
-	p.Add("target_id", targetId)
-	p.Add("auth_type", "AUTHACCOUNT")
-	p.Add("sign_type", "RSA2")
-	p.Add("app_id", this.appId)
-
-	var err error
-
-	var sign string
-	if this.SignType == K_SIGN_TYPE_RSA {
-		sign, err = signRSA(p, this.privateKey)
-	} else {
-		sign, err = signRSA2(p, this.privateKey)
-	}
 	p.Add("sign", sign)
-
-	if err != nil {
-		return "", err
-	}
-	return p.Encode(), nil
+	return p, nil
 }
 
 func (this *AliPay) doRequest(method string, param AliPayParam, results interface{}) (err error) {
@@ -121,7 +93,7 @@ func (this *AliPay) doRequest(method string, param AliPayParam, results interfac
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+	req.Header.Set("Content-Type", kContentType)
 
 	resp, err := this.Client.Do(req)
 	if resp != nil {
@@ -139,10 +111,10 @@ func (this *AliPay) doRequest(method string, param AliPayParam, results interfac
 	if len(this.AliPayPublicKey) > 0 {
 		var dataStr = string(data)
 
-		var rootNodeName = strings.Replace(param.APIName(), ".", "_", -1) + k_RESPONSE_SUFFIX
+		var rootNodeName = strings.Replace(param.APIName(), ".", "_", -1) + kResponseSuffix
 
 		var rootIndex = strings.LastIndex(dataStr, rootNodeName)
-		var errorIndex = strings.LastIndex(dataStr, k_ERROR_RESPONSE)
+		var errorIndex = strings.LastIndex(dataStr, kErrorResponse)
 
 		var content string
 		var sign string
@@ -150,18 +122,18 @@ func (this *AliPay) doRequest(method string, param AliPayParam, results interfac
 		if rootIndex > 0 {
 			content, sign = parserJSONSource(dataStr, rootNodeName, rootIndex)
 		} else if errorIndex > 0 {
-			content, sign = parserJSONSource(dataStr, k_ERROR_RESPONSE, errorIndex)
+			content, sign = parserJSONSource(dataStr, kErrorResponse, errorIndex)
 		} else {
 			return nil
 		}
 
-		if ok, err := verifyResponseData([]byte(content), this.SignType, sign, this.AliPayPublicKey); ok == false {
-			return err
+		if sign != "" {
+			if ok, err := verifyData([]byte(content), this.SignType, sign, this.AliPayPublicKey); ok == false {
+				return err
+			}
 		}
 	}
 
-	logrus.Info("打印原版数据")
-	logrus.Infof("%v", string(data))
 	err = json.Unmarshal(data, results)
 	if err != nil {
 		return err
@@ -180,7 +152,7 @@ func (this *AliPay) VerifySign(data url.Values) (ok bool, err error) {
 
 func parserJSONSource(rawData string, nodeName string, nodeIndex int) (content string, sign string) {
 	var dataStartIndex = nodeIndex + len(nodeName) + 2
-	var signIndex = strings.LastIndex(rawData, "\""+k_SIGN_NODE_NAME+"\"")
+	var signIndex = strings.LastIndex(rawData, "\""+kSignNodeName+"\"")
 	var dataEndIndex = signIndex - 1
 
 	var indexLen = dataEndIndex - dataStartIndex
@@ -189,7 +161,7 @@ func parserJSONSource(rawData string, nodeName string, nodeIndex int) (content s
 	}
 	content = rawData[dataStartIndex:dataEndIndex]
 
-	var signStartIndex = signIndex + len(k_SIGN_NODE_NAME) + 4
+	var signStartIndex = signIndex + len(kSignNodeName) + 4
 	sign = rawData[signStartIndex:]
 	var signEndIndex = strings.LastIndex(sign, "\"}")
 	sign = sign[:signEndIndex]
@@ -197,7 +169,7 @@ func parserJSONSource(rawData string, nodeName string, nodeIndex int) (content s
 	return content, sign
 }
 
-func signRSA2(param url.Values, privateKey []byte) (s string, err error) {
+func signWithPKCS1v15(param url.Values, privateKey []byte, hash crypto.Hash) (s string, err error) {
 	if param == nil {
 		param = make(url.Values, 0)
 	}
@@ -211,29 +183,7 @@ func signRSA2(param url.Values, privateKey []byte) (s string, err error) {
 	}
 	sort.Strings(pList)
 	var src = strings.Join(pList, "&")
-	sig, err := encoding.SignPKCS1v15([]byte(src), privateKey, crypto.SHA256)
-	if err != nil {
-		return "", err
-	}
-	s = base64.StdEncoding.EncodeToString(sig)
-	return s, nil
-}
-
-func signRSA(param url.Values, privateKey []byte) (s string, err error) {
-	if param == nil {
-		param = make(url.Values, 0)
-	}
-
-	var pList = make([]string, 0, 0)
-	for key := range param {
-		var value = strings.TrimSpace(param.Get(key))
-		if len(value) > 0 {
-			pList = append(pList, key+"="+value)
-		}
-	}
-	sort.Strings(pList)
-	var src = strings.Join(pList, "&")
-	sig, err := encoding.SignPKCS1v15([]byte(src), privateKey, crypto.SHA1)
+	sig, err := encoding.SignPKCS1v15([]byte(src), privateKey, hash)
 	if err != nil {
 		return "", err
 	}
@@ -246,11 +196,8 @@ func VerifySign(data url.Values, key []byte) (ok bool, err error) {
 }
 
 func verifySign(data url.Values, key []byte) (ok bool, err error) {
-	sign, err := base64.StdEncoding.DecodeString(data.Get("sign"))
+	sign := data.Get("sign")
 	signType := data.Get("sign_type")
-	if err != nil {
-		return false, err
-	}
 
 	var keys = make([]string, 0, 0)
 	for key, value := range data {
@@ -273,18 +220,10 @@ func verifySign(data url.Values, key []byte) (ok bool, err error) {
 	}
 	var s = strings.Join(pList, "&")
 
-	if signType == K_SIGN_TYPE_RSA {
-		err = encoding.VerifyPKCS1v15([]byte(s), sign, key, crypto.SHA1)
-	} else {
-		err = encoding.VerifyPKCS1v15([]byte(s), sign, key, crypto.SHA256)
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	return verifyData([]byte(s), signType, sign, key)
 }
 
-func verifyResponseData(data []byte, signType, sign string, key []byte) (ok bool, err error) {
+func verifyData(data []byte, signType, sign string, key []byte) (ok bool, err error) {
 	signBytes, err := base64.StdEncoding.DecodeString(sign)
 	if err != nil {
 		return false, err

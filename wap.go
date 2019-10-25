@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// https://docs.open.alipay.com/api_1/alipay.trade.wap.pay/
+// TradeWapPay https://docs.open.alipay.com/api_1/alipay.trade.wap.pay/
 func (this *AliPay) TradeWapPay(param AliPayTradeWapPay) (url *url.URL, err error) {
 	p, err := this.URLValues(param)
 	if err != nil {
@@ -18,7 +18,7 @@ func (this *AliPay) TradeWapPay(param AliPayTradeWapPay) (url *url.URL, err erro
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+	req.Header.Set("Content-Type", kContentType)
 
 	rep, err := this.Client.Do(req)
 	if err != nil {

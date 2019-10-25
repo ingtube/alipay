@@ -34,7 +34,7 @@ func (this *AliPay) TradeFastpayRefundQuery(param AliPayFastpayTradeRefundQuery)
 }
 
 // TradeOrderSettle https://docs.open.alipay.com/api_1/alipay.trade.order.settle
-func (this *AliPay) TradeOrderSettle(param AliPayTradeOrderSettle) (results interface{}, err error) {
+func (this *AliPay) TradeOrderSettle(param AliPayTradeOrderSettle) (results *AliPayTradeOrderSettleResponse, err error) {
 	err = this.doRequest("POST", param, &results)
 	return results, err
 }
@@ -77,6 +77,12 @@ func (this *AliPay) TradeCreate(param AliPayTradeCreate) (results *AliPayTradeCr
 
 // TradePay https://docs.open.alipay.com/api_1/alipay.trade.pay/
 func (this *AliPay) TradePay(param AliPayTradePay) (results *AliPayTradePayResponse, err error) {
+	err = this.doRequest("POST", param, &results)
+	return results, err
+}
+
+// TradeOrderInfoSync https://docs.open.alipay.com/api_1/alipay.trade.orderinfo.sync/
+func (this *AliPay) TradeOrderInfoSync(param AliPayTradeOrderInfoSync) (results *AliPayTradeOrderInfoSyncResponse, err error) {
 	err = this.doRequest("POST", param, &results)
 	return results, err
 }

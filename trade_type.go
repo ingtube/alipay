@@ -3,7 +3,7 @@ package alipay
 import "encoding/json"
 
 ////////////////////////////////////////////////////////////////////////////////
-type tradePay struct {
+type TradePay struct {
 	NotifyURL string `json:"-"`
 	ReturnURL string `json:"-"`
 
@@ -33,9 +33,9 @@ type tradePay struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// https://docs.open.alipay.com/270/alipay.trade.page.pay
+// https://docs.open.alipay.com/api_1/alipay.trade.app.pay
 type AliPayTradePagePay struct {
-	tradePay
+	TradePay
 	AuthToken   string `json:"auth_token,omitempty"`   // 针对用户授权接口，获取用户相关数据时，用于标识用户授权关系
 	GoodsDetail string `json:"goods_detail,omitempty"` // 订单包含的商品列表信息，Json格式，详见商品明细说明
 	QRPayMode   string `json:"qr_pay_mode,omitempty"`  // PC扫码支付的方式，支持前置模式和跳转模式。
@@ -345,17 +345,28 @@ func (this AliPayTradeOrderSettle) ExtJSONParamValue() string {
 }
 
 type RoyaltyParameter struct {
-	TransOut         string  `json:"trans_out"`         // 可选 分账支出方账户，类型为userId，本参数为要分账的支付宝账号对应的支付宝唯一用户号。以2088开头的纯16位数字。
-	TransIn          string  `json:"trans_in"`          // 可选 分账收入方账户，类型为userId，本参数为要分账的支付宝账号对应的支付宝唯一用户号。以2088开头的纯16位数字。
-	Amount           float64 `json:"amount"`            // 可选 分账的金额，单位为元
-	AmountPercentage float64 `json:"amount_percentage"` // 可选 分账信息中分账百分比。取值范围为大于0，少于或等于100的整数。
-	Desc             string  `json:"desc"`              // 可选 分账描述
+	TransOut         string  `json:"trans_out"`                   // 可选 分账支出方账户，类型为userId，本参数为要分账的支付宝账号对应的支付宝唯一用户号。以2088开头的纯16位数字。
+	TransIn          string  `json:"trans_in"`                    // 可选 分账收入方账户，类型为userId，本参数为要分账的支付宝账号对应的支付宝唯一用户号。以2088开头的纯16位数字。
+	Amount           float64 `json:"amount"`                      // 可选 分账的金额，单位为元
+	AmountPercentage float64 `json:"amount_percentage,omitempty"` // 可选 分账信息中分账百分比。取值范围为大于0，少于或等于100的整数。
+	Desc             string  `json:"desc"`                        // 可选 分账描述
+}
+
+type AliPayTradeOrderSettleResponse struct {
+	Body struct {
+		Code    string `json:"code"`
+		Msg     string `json:"msg"`
+		SubCode string `json:"sub_code"`
+		SubMsg  string `json:"sub_msg"`
+		TradeNo string `json:"trade_no"`
+	} `json:"alipay_trade_order_settle_response"`
+	Sign string `json:"sign"`
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 // https://docs.open.alipay.com/api_1/alipay.trade.create/
 type AliPayTradeCreate struct {
-	tradePay
+	TradePay
 	AppAuthToken string `json:"-"` // 可选
 
 	DiscountableAmount string             `json:"discountable_amount"` // 可打折金额. 参与优惠计算的金额，单位为元，精确到小数点后两位
@@ -440,11 +451,12 @@ type GoodsDetailItem struct {
 //////////////////////////////////////////////////////////////////////////////////
 // https://docs.open.alipay.com/api_1/alipay.trade.pay/
 type AliPayTradePay struct {
-	tradePay
+	TradePay
 	AppAuthToken string `json:"-"` // 可选
 
-	Scene    string `json:"scene"`     // 必须 支付场景 条码支付，取值：bar_code 声波支付，取值：wave_code	bar_code,wave_code
-	AuthCode string `json:"auth_code"` // 必须 支付授权码
+	Scene    string `json:"scene"`               // 必须 支付场景 条码支付，取值：bar_code 声波支付，取值：wave_code, bar_code, wave_code
+	AuthCode string `json:"auth_code,omitempty"` // 必须 支付授权码
+	AuthNo   string `json:"auth_no,omitempty"`   // 可选 预授权冻结交易号
 
 	BuyerId            string             `json:"buyer_id"` // 可选 家的支付宝用户id，如果为空，会从传入了码值信息中获取买家ID
 	TransCurrency      string             `json:"trans_currency,omitempty"`
@@ -511,7 +523,7 @@ func (this *AliPayTradePayResponse) IsSuccess() bool {
 //////////////////////////////////////////////////////////////////////////////////
 // https://docs.open.alipay.com/api_1/alipay.trade.app.pay/
 type AliPayTradeAppPay struct {
-	tradePay
+	TradePay
 	TimeExpire string `json:"time_expire,omitempty"` // 绝对超时时间，格式为yyyy-MM-dd HH:mm。
 }
 
@@ -536,7 +548,7 @@ func (this AliPayTradeAppPay) ExtJSONParamValue() string {
 //////////////////////////////////////////////////////////////////////////////////
 // https://docs.open.alipay.com/api_1/alipay.trade.precreate/
 type AliPayTradePreCreate struct {
-	tradePay
+	TradePay
 	AppAuthToken       string             `json:"-"`                      // 可选
 	DiscountableAmount string             `json:"discountable_amount"`    // 可选 可打折金额. 参与优惠计算的金额，单位为元，精确到小数点后两位，取值范围[0.01,100000000] 如果该值未传入，但传入了【订单总金额】，【不可打折金额】则该值默认为【订单总金额】-【不可打折金额】
 	GoodsDetail        []*GoodsDetailItem `json:"goods_detail,omitempty"` // 可选 订单包含的商品列表信息.Json格式. 其它说明详见：“商品明细说明”
@@ -630,4 +642,45 @@ func (this *AliPayTradeCancelResponse) IsSuccess() bool {
 		return true
 	}
 	return false
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+// https://docs.open.alipay.com/api_1/alipay.trade.orderinfo.sync/
+type AliPayTradeOrderInfoSync struct {
+	AppAuthToken string `json:"-"`              // 可选
+	OutRequestNo string `json:"out_request_no"` // 必选 标识一笔交易多次请求，同一笔交易多次信息同步时需要保证唯一
+	BizType      string `json:"biz_type"`       // 必选 交易信息同步对应的业务类型，具体值与支付宝约定；信用授权场景下传CREDIT_AUTH
+	TradeNo      string `json:"trade_no"`       // 可选 支付宝交易号，和商户订单号不能同时为空
+	OrderBizInfo string `json:"order_biz_info"` // 可选 商户传入同步信息，具体值要和支付宝约定；用于芝麻信用租车、单次授权等信息同步场景，格式为json格式
+}
+
+func (this AliPayTradeOrderInfoSync) APIName() string {
+	return "alipay.trade.orderinfo.sync"
+}
+
+func (this AliPayTradeOrderInfoSync) Params() map[string]string {
+	var m = make(map[string]string)
+	m["app_auth_token"] = this.AppAuthToken
+	return m
+}
+
+func (this AliPayTradeOrderInfoSync) ExtJSONParamName() string {
+	return "biz_content"
+}
+
+func (this AliPayTradeOrderInfoSync) ExtJSONParamValue() string {
+	return marshal(this)
+}
+
+type AliPayTradeOrderInfoSyncResponse struct {
+	Body struct {
+		Code        string `json:"code"`
+		Msg         string `json:"msg"`
+		SubCode     string `json:"sub_code"`
+		SubMsg      string `json:"sub_msg"`
+		TradeNo     string `json:"trade_no"`
+		OutTradeNo  string `json:"out_trade_no"`
+		BuyerUserId string `json:"buyer_user_id"`
+	} `json:"alipay_trade_orderinfo_sync_response"`
+	Sign string `json:"sign"`
 }
