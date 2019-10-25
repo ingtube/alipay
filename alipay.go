@@ -157,6 +157,30 @@ func (this *Client) LoadAliPayRootCertFromFile(filename string) error {
 	return this.LoadAliPayRootCert(string(b))
 }
 
+func (this *Client) AccountAuthURLValues(param Param) (value url.Values, err error) {
+	var p = url.Values{}
+	p.Add("app_id", this.appId)
+	if this.appCertSN != "" {
+		p.Add("app_cert_sn", this.appCertSN)
+	}
+	if this.rootCertSN != "" {
+		p.Add("alipay_root_cert_sn", this.rootCertSN)
+	}
+
+	var ps = param.Params()
+	if ps != nil {
+		for key, value := range ps {
+			p.Add(key, value)
+		}
+	}
+	sign, err := signWithPKCS1v15(p, this.appPrivateKey, crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
+	p.Add("sign", sign)
+	return p, nil
+}
+
 func (this *Client) URLValues(param Param) (value url.Values, err error) {
 	var p = url.Values{}
 	p.Add("app_id", this.appId)
