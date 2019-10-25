@@ -30,7 +30,7 @@ func NewRequest(method, url string, params url.Values) (*http.Request, error) {
 	return http.NewRequest(m, url, body)
 }
 
-func (this *AliPay) NotifyVerify(partnerId, notifyId string) bool {
+func (this *Client) NotifyVerify(partnerId, notifyId string) bool {
 	var param = url.Values{}
 	param.Add("service", "notify_verify")
 	param.Add("partner", partnerId)
@@ -56,11 +56,7 @@ func (this *AliPay) NotifyVerify(partnerId, notifyId string) bool {
 	return false
 }
 
-func (this *AliPay) GetTradeNotification(req *http.Request) (*TradeNotification, error) {
-	return GetTradeNotification(req, this.AliPayPublicKey)
-}
-
-func GetTradeNotification(req *http.Request, aliPayPublicKey []byte) (noti *TradeNotification, err error) {
+func (this *Client) GetTradeNotification(req *http.Request) (noti *TradeNotification, err error) {
 	if req == nil {
 		return nil, errors.New("request 参数不能为空")
 	}
@@ -103,14 +99,14 @@ func GetTradeNotification(req *http.Request, aliPayPublicKey []byte) (noti *Trad
 	//	return nil, errors.New("不是有效的 Notify")
 	//}
 
-	ok, err := verifySign(req.Form, aliPayPublicKey)
+	ok, err := this.VerifySign(req.Form)
 	if ok == false {
 		return nil, err
 	}
 	return noti, err
 }
 
-func (this *AliPay) AckNotification(w http.ResponseWriter) {
+func (this *Client) AckNotification(w http.ResponseWriter) {
 	AckNotification(w)
 }
 

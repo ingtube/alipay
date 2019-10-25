@@ -1,7 +1,7 @@
 package alipay
 
-// BillDownloadURLQuery https://docs.open.alipay.com/api_15/alipay.data.dataservice.bill.downloadurl.query
-func (this *AliPay) BillDownloadURLQuery(param BillDownloadURLQuery) (results *BillDownloadURLQueryResponse, err error) {
-	err = this.doRequest("POST", param, &results)
-	return results, err
+// BillDownloadURLQuery 查询对账单下载地址 https://docs.open.alipay.com/api_15/alipay.data.dataservice.bill.downloadurl.query
+func (this *Client) BillDownloadURLQuery(param BillDownloadURLQuery) (result *BillDownloadURLQueryRsp, err error) {
+	err = this.doRequest("POST", param, &result)
+	return result, err
 }
