@@ -157,7 +157,7 @@ func (this *Client) LoadAliPayRootCertFromFile(filename string) error {
 	return this.LoadAliPayRootCert(string(b))
 }
 
-func (this *Client) AccountAuthURLValues(p url.Values) (value url.Values, err error) {
+func (this *Client) RawURLValues(p url.Values) (value url.Values, err error) {
 	p.Add("app_id", this.appId)
 	if this.appCertSN != "" {
 		p.Add("app_cert_sn", this.appCertSN)
